@@ -49,6 +49,7 @@ namespace MATBOT
             string codeToExecute = "";
 
             bool outputsText = true;
+            bool systemOutput = false;
             string prefix = "";
             string postfix = "";
 
@@ -77,14 +78,15 @@ namespace MATBOT
                     EmbedBuilder builder = new EmbedBuilder();
 
                     builder.Title = "List of commands";
-                    builder.Description = "Equations and sequences of elements in all other input elements must not contain spaces.\nInput elements in [] are mandatory. Input elements in () are optional.\nAdditional variables may represent any additional data.";
+                    builder.Description = "Equations and sequences of characters in all other input elements must not contain spaces.\nInput elements in [] are mandatory. Input elements in () are optional.\nAdditional variables may represent any additional data.";
                     builder.Color = Color.Blue;
                     builder.Footer = new EmbedFooterBuilder().WithText("This bot uses MATLAB");
 
                     builder.AddField("!help", "Provides the list of available commands.");
                     builder.AddField("!solve", "Solves the given equation.\nSyntax: `!solve [equation] [unknown var] (additional vars)`\nExample: `!solve a*x+3+b==18 x a,b`");
-                    builder.AddField("!integrate", "Integrates the given equation.\nSyntax: `!integrate [function] [slice along var] (additional vars)`\nExample: `!integrate exp(x)*b+3*a-4 x a,b`");
-                    builder.AddField("!integrateDefinite", "Makes a definite integration of the given equation.\nSyntax: `!integrateDefinite [function] [slice along var] (additional vars) [bottom limit] [upper limit]`\nExample: `!integrateDefinite 2*x+3 x 1 4`");
+                    builder.AddField("!solveSystem", "Solves the given system of equations.\nSyntax: `!solveSystem [equations] [unknown vars] (additional vars)`\nExample: `!solveSystem x+y==a,x-y==b x,y a,b`");
+                    builder.AddField("!integrate", "Integrates the given function.\nSyntax: `!integrate [function] [slice along var] (additional vars)`\nExample: `!integrate exp(x)*b+3*a-4 x a,b`");
+                    builder.AddField("!integrateDefinite", "Makes a definite integration of the given function.\nSyntax: `!integrateDefinite [function] [slice along var] (additional vars) [bottom limit] [upper limit]`\nExample: `!integrateDefinite 2*x+3 x 1 4`");
 
                     await msg.Channel.SendMessageAsync("", embed: builder.Build());
 
@@ -98,16 +100,53 @@ namespace MATBOT
 
                         return;
                     }
+                    if (messages[1].Contains(',') || messages[2].Contains(','))
+                    {
+                        await msg.Channel.SendMessageAsync("Wrong input.");
 
-                    messages[1] = messages[1].Replace("=", "==");
+                        return;
+                    }
+
+                    if (!messages[1].Contains("==")) messages[1] = messages[1].Replace("=", "==");
 
                     if (messages.Length == 3)
                     {
-                        codeToExecute += "syms " + messages[2].Replace(',', ' ') + "; answerToThisDarkQuestion = solve(" + messages[1] + "," + messages[2] + "); answerString = evalc('answerToThisDarkQuestion');";
+                        codeToExecute += "syms " + messages[2] + "; answer = solve(" + messages[1] + "," + messages[2] + "); answerString = evalc('answer');";
                     }
                     else
                     {
-                        codeToExecute += "syms " + messages[2].Replace(',', ' ') + " " + messages[3].Replace(',', ' ') + "; answerToThisDarkQuestion = solve(" + messages[1] + "," + messages[2] + "); answerString = evalc('answerToThisDarkQuestion');";
+                        codeToExecute += "syms " + messages[2].Replace(',', ' ') + " " + messages[3].Replace(',', ' ') + "; answer = solve(" + messages[1] + "," + messages[2] + "); answerString = evalc('answer');";
+                    }
+
+                    break;
+                }
+                case "!solveSystem":
+                {
+                    if (messages.Length < 3 || messages.Length > 4)
+                    {
+                        await msg.Channel.SendMessageAsync("Wrong input.");
+
+                        return;
+                    }
+
+                    systemOutput = true;
+
+                    if (!messages[1].Contains("==")) messages[1] = messages[1].Replace("=", "==");
+
+                    if (messages.Length == 3)
+                    {
+                        codeToExecute += "syms " + messages[2].Replace(',', ' ') + "; answer = solve([" + messages[1] + "],[" + messages[2] + "]); answerString = ''; ";
+                    }
+                    else
+                    {
+                        codeToExecute += "syms " + messages[2].Replace(',', ' ') + " " + messages[3].Replace(',', ' ') + "; answer = solve([" + messages[1] + "],[" + messages[2] + "]); answerString = ''; ";
+                    }
+
+                    string[] syms = messages[2].Split(',');
+
+                    for (int i = 0; i < syms.Length; i++)
+                    {
+                        codeToExecute += "str" + i + " = evalc('answer." + syms[i] + "'); answerString = strcat(answerString, str" + i + "); ";
                     }
 
                     break;
@@ -120,21 +159,21 @@ namespace MATBOT
 
                         return;
                     }
-                    if (messages[2].Length > 1)
+                    if (messages[1].Contains(',') || messages[2].Contains(','))
                     {
                         await msg.Channel.SendMessageAsync("Wrong input.");
 
                         return;
                     }
 
-                    messages[1] = messages[1].Replace("=", "==");
+                    if (!messages[1].Contains("==")) messages[1] = messages[1].Replace("=", "==");
 
                     prefix = $"f({messages[2]}) = ";
                     postfix = " + C";
 
                     if (messages.Length == 3)
                     {
-                        codeToExecute += "syms " + messages[2] +$"; f = inline('{messages[1]}', '{messages[2]}'); answerToThisDarkQuestion = int(f({messages[2]}),'" + messages[2] + "'); answerString = evalc('answerToThisDarkQuestion');";
+                        codeToExecute += "syms " + messages[2] +$"; f = inline('{messages[1]}', '{messages[2]}'); answer = int(f({messages[2]}),'" + messages[2] + "'); answerString = evalc('answer');";
                     }
                     else
                     {
@@ -145,7 +184,7 @@ namespace MATBOT
                             if (i + 1 != messages[3].Length) parms += ",";
                         }
 
-                        codeToExecute += "syms " + messages[2][0] + " " + messages[3].Replace(',', ' ') + $"; f = inline('{messages[1]}', '{messages[2]}', {parms}); answerToThisDarkQuestion = int(f({messages[2]}, {messages[3]}),'" + messages[2] + $"'); answerString = evalc('answerToThisDarkQuestion');";
+                        codeToExecute += "syms " + messages[2][0] + " " + messages[3].Replace(',', ' ') + $"; f = inline('{messages[1]}', '{messages[2]}', {parms}); answer = int(f({messages[2]}, {messages[3]}),'" + messages[2] + $"'); answerString = evalc('answer');";
                     }
 
                     break;
@@ -158,18 +197,18 @@ namespace MATBOT
 
                         return;
                     }
-                    if (messages[2].Length > 1)
+                    if (messages[1].Contains(',') || messages[2].Contains(','))
                     {
                         await msg.Channel.SendMessageAsync("Wrong input.");
 
                         return;
                     }
 
-                    messages[1] = messages[1].Replace("=", "==");
+                    if (!messages[1].Contains("==")) messages[1] = messages[1].Replace("=", "==");
 
                     if (messages.Length == 5)
                     {
-                        codeToExecute += "syms " + messages[2] + $"; f = inline('{messages[1]}', '{messages[2]}'); answerToThisDarkQuestion = int(f({messages[2]}),'" + messages[2] + $"', {messages[3]}, {messages[4]}); answerString = evalc('answerToThisDarkQuestion');";
+                        codeToExecute += "syms " + messages[2] + $"; f = inline('{messages[1]}', '{messages[2]}'); answer = int(f({messages[2]}),'" + messages[2] + $"', {messages[3]}, {messages[4]}); answerString = evalc('answer');";
                     }
                     else
                     {
@@ -180,7 +219,7 @@ namespace MATBOT
                             if (i + 1 != messages[3].Length) parms += ",";
                         }
 
-                        codeToExecute += "syms " + messages[2][0] + " " + messages[3].Replace(',', ' ') + $"; f = inline('{messages[1]}', '{messages[2]}', {parms}); answerToThisDarkQuestion = int(f({messages[2]}, {messages[3]}),'" + messages[2] + $"', {messages[3]}, {messages[4]}); answerString = evalc('answerToThisDarkQuestion');";
+                        codeToExecute += "syms " + messages[2][0] + " " + messages[3].Replace(',', ' ') + $"; f = inline('{messages[1]}', '{messages[2]}', {parms}); answer = int(f({messages[2]}, {messages[3]}),'" + messages[2] + $"', {messages[3]}, {messages[4]}); answerString = evalc('answer');";
                     }
 
                     break;
@@ -219,14 +258,52 @@ namespace MATBOT
 
                     string answer = File.ReadAllText(_outputTextFilename);
                     answer = answer.Replace("*", "\\*");
-                    answer = answer.Replace("answerToThisDarkQuestion =", "");
-                    answer.Replace("Empty sym: 0-by-1", "Answer can't be found or there's an error in the input");
+                    answer = answer.Replace("answer =\n", "");
+                    answer = answer.Replace("answerString =\n", "");
+                    answer = answer.Replace("ans =\n", "");
+                    answer = answer.Replace("answer =", "");
+                    answer = answer.Replace("answerString =", "");
+                    answer = answer.Replace("ans =", "");
+                    answer = answer.Replace("Empty sym: 0-by-1", "Answer cannot be found or there's an error in the input");
                     answer = answer.Trim();
                     answer = prefix + answer + postfix;
 
+                    if (systemOutput)
+                    {
+                        string[] syms = messages[2].Split(',');
+                        string[] lines = answer.Split('\n');
+
+                        string newAnswer = "";
+
+                        for (int i = 0, j = 0, k = 0; i < lines.Length; i++)
+                        {
+                            if (String.IsNullOrWhiteSpace(lines[i]))
+                            {
+                                j = 0;
+                                k++;
+
+                                newAnswer += "\n";
+
+                                continue;
+                            }
+
+                            newAnswer += syms[k] + GetSubscriptNumChar(j) + ": " + lines[i] + "\n";
+                            j++;
+                        }
+
+                        answer = newAnswer;
+                    }
+
                     builder.WithDescription(answer);
 
-                    await msg.Channel.SendMessageAsync("", embed: builder.Build());
+                    if (process.ExitCode == 0)
+                    {
+                        await msg.Channel.SendMessageAsync("", embed: builder.Build());
+                    }
+                    else
+                    {
+                        await msg.Channel.SendMessageAsync("An error occured. Check your input.");
+                    }
                 }
                 else
                 {
@@ -242,7 +319,60 @@ namespace MATBOT
             }
         }
 
-        protected bool IsFileInUse(FileInfo file)
+        private char GetSubscriptNumChar(int num)
+        {
+            switch (num)
+            {
+                case 0:
+                {
+                    return '\u2080';
+                }
+                case 1:
+                {
+                    return '\u2081';
+                }
+                case 2:
+                {
+                    return '\u2082';
+                }
+                case 3:
+                {
+                    return '\u2083';
+                }
+                case 4:
+                {
+                    return '\u2084';
+                }
+                case 5:
+                {
+                    return '\u2085';
+                }
+                case 6:
+                {
+                    return '\u2086';
+                }
+                case 7:
+                {
+                    return '\u2087';
+                }
+                case 8:
+                {
+                    return '\u2088';
+                }
+                case 9:
+                {
+                    return '\u2089';
+                }
+                default:
+                {
+                    Console.WriteLine("An error occured in GetSubscriptNumChar method. Argument: " + num);
+
+                    return ' ';
+                }
+            }
+        }
+
+        private bool IsFileInUse(FileInfo file)
         {
             FileStream stream = null;
 
@@ -252,10 +382,6 @@ namespace MATBOT
             }
             catch (IOException)
             {
-                //the file is unavailable because it is:
-                //still being written to
-                //or being processed by another thread
-                //or does not exist (has already been processed)
                 return true;
             }
             finally

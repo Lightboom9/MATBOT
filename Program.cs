@@ -89,50 +89,6 @@ namespace MATBOT
 
                     return;
                 }
-                case "!custom":
-                {
-                    if (msg.Author.Id != 284956691391578112)
-                    {
-                        await msg.Channel.SendMessageAsync("You cannot use this command.");
-
-                        return;
-                    }
-                    if (messages.Length < 4)
-                    {
-                        await msg.Channel.SendMessageAsync("Wrong input.");
-
-                        return;
-                    }
-                    messages[1] = messages[1].ToLower();
-                    if (messages[1] != "text" && messages[1] != "image")
-                    {
-                        await msg.Channel.SendMessageAsync("Wrong input. Output must be text or image.");
-
-                        return;
-                    }
-
-                    customOutputVar = messages[2];
-
-                    string customCode = "";
-                    for (int i = 3; i < messages.Length; i++)
-                    {
-                        customCode += messages[i];
-                        if (i < messages.Length - 1) customCode += " ";
-                    }
-
-                    if (messages[1] == "text")
-                    {
-                        codeToExecute = customCode + $" answerString = evalc('{messages[2]}'); ";
-                    }
-                    else
-                    {
-                        outputsText = false;
-
-                        codeToExecute = customCode;
-                    }
-
-                    break;
-                }
                 case "!solve":
                 {
                     if (messages.Length < 3 || messages.Length > 4)
@@ -310,6 +266,71 @@ namespace MATBOT
 
                     break;
                 }
+                case "!graphic":
+                {
+                    if (messages.Length != 5)
+                    {
+                        await msg.Channel.SendMessageAsync("Wrong input.");
+                    }
+                    if (messages[2].Contains(','))
+                    {
+                        await msg.Channel.SendMessageAsync("Wrong input.");
+
+                        return;
+                    }
+
+                    messages[1] = messages[1].Replace("^", ".^");
+
+                    outputsText = false;
+
+                    codeToExecute += "syms y " + messages[2] + "; " + messages[2] + " = [" + messages[3] + ":0.01:" + messages[4] + "]; y = " + messages[1] + "; answerImage = figure('visible','off'); plot(" + messages[2] + ",y); ";
+
+                    break;
+                }
+                case "!custom":
+                {
+                    if (msg.Author.Id != 284956691391578112)
+                    {
+                        await msg.Channel.SendMessageAsync("You cannot use this command.");
+
+                        return;
+                    }
+                    if (messages.Length < 4)
+                    {
+                        await msg.Channel.SendMessageAsync("Wrong input.");
+
+                        return;
+                    }
+                    messages[1] = messages[1].ToLower();
+                    if (messages[1] != "text" && messages[1] != "image")
+                    {
+                        await msg.Channel.SendMessageAsync("Wrong input. Output must be text or image.");
+
+                        return;
+                    }
+
+                    customOutputVar = messages[2];
+
+                    string customCode = "";
+                    for (int i = 3; i < messages.Length; i++)
+                    {
+                        customCode += messages[i];
+                        if (i < messages.Length - 1) customCode += " ";
+                    }
+
+                    if (messages[1] == "text")
+                    {
+                        codeToExecute = customCode + $" answerString = evalc('{messages[2]}'); ";
+                    }
+                    else
+                    {
+                        outputsText = false;
+
+                        codeToExecute = customCode;
+                    }
+
+                    break;
+                }
                 default:
                 {
                     await msg.Channel.SendMessageAsync("Wrong input.");
@@ -396,7 +417,8 @@ namespace MATBOT
                 }
                 else
                 {
-                    startInfo.Arguments = _pathToMatlab + codeToExecute + _imageCommandSuffix + customOutputVar + _imageCommandPostfix;
+                    if (customOutputVar != null) startInfo.Arguments = _pathToMatlab + codeToExecute + _imageCommandSuffix + customOutputVar + _imageCommandPostfix;
+                    else startInfo.Arguments = _pathToMatlab + codeToExecute + _imageCommandSuffix + "answerImage" + _imageCommandPostfix;
                     process.StartInfo = startInfo;
 
                     process.Start();

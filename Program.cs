@@ -34,9 +34,14 @@ namespace MATBOT
         }
 
         private const string _pathToMatlab = "/C e:\\Programs\\MATLAB\\bin\\matlab.exe -batch \"";
-        private const string _outputTextFilename = "c:\\outdir\\output.txt";
-        private const string _endOfStuff = " fileID = fopen('" + _outputTextFilename + "', 'w'); fprintf(fileID, '%s', answerString); fclose(fileID); exit; \"";
+        private const string _outputFolderPath = "c:\\outdir\\";
+        private const string _outputTextFilename = "output.txt";
+        private const string _outputTextFilepath = _outputFolderPath + _outputTextFilename;
+        private const string _textCommandSuffix = " fileID = fopen('" + _outputTextFilepath + "', 'w'); fprintf(fileID, '%s', answerString); fclose(fileID); exit; \"";
         private const string _imageFilename = "outputImage.png";
+        private const string _imageFullpath = _outputFolderPath + _imageFilename;
+        private const string _imageCommandSuffix = " whereToStoreImage=fullfile('" + _outputFolderPath + "',['" + _imageFilename + "']); saveas(";
+        private const string _imageCommandPostfix = ", whereToStoreImage); exit; \"";
 
         public async Task MessageLogger(SocketMessage msg)
         {
@@ -52,7 +57,8 @@ namespace MATBOT
             bool systemOutput = false;
             string prefix = "";
             string postfix = "";
-
+            string customOutputVar = null;
+            
             System.Diagnostics.Process process = new System.Diagnostics.Process();
             System.Diagnostics.ProcessStartInfo startInfo = new System.Diagnostics.ProcessStartInfo();
             startInfo.WindowStyle = System.Diagnostics.ProcessWindowStyle.Hidden;
@@ -87,10 +93,55 @@ namespace MATBOT
                     builder.AddField("!solveSystem", "Solves the given system of equations.\nSyntax: `!solveSystem [equations] [unknown vars] (additional vars)`\nExample: `!solveSystem x+y==a,x-y==b x,y a,b`");
                     builder.AddField("!integrate", "Integrates the given function.\nSyntax: `!integrate [function] [slice along var] (additional vars)`\nExample: `!integrate exp(x)*b+3*a-4 x a,b`");
                     builder.AddField("!integrateDefinite", "Makes a definite integration of the given function.\nSyntax: `!integrateDefinite [function] [slice along var] (additional vars) [bottom limit] [upper limit]`\nExample: `!integrateDefinite 2*x+3 x 1 4`");
+                    if (msg.Author.Id == 284956691391578112) builder.AddField("!custom", "Runs custom matlab code.\nSyntax: !custom [output type] [output variable] [code]\nAvailable output types: text, image\nExample 1: `!custom text answer answer = 3 + 5;`\nExample 2: `!custom image gcf x = -5:0.01:5; y = x.^2; gcf = figure('visible','off'); plot(x,y);`");
 
                     await msg.Channel.SendMessageAsync("", embed: builder.Build());
 
                     return;
+                }
+                case "!custom":
+                {
+                    if (msg.Author.Id != 284956691391578112)
+                    {
+                        await msg.Channel.SendMessageAsync("You cannot use this command.");
+
+                        return;
+                    }
+                    if (messages.Length < 4)
+                    {
+                        await msg.Channel.SendMessageAsync("Wrong input.");
+
+                        return;
+                    }
+                    messages[1] = messages[1].ToLower();
+                    if (messages[1] != "text" && messages[1] != "image")
+                    {
+                        await msg.Channel.SendMessageAsync("Wrong input. Output must be text or image.");
+
+                        return;
+                    }
+
+                    customOutputVar = messages[2];
+
+                    string customCode = "";
+                    for (int i = 3; i < messages.Length; i++)
+                    {
+                        customCode += messages[i];
+                        if (i < messages.Length - 1) customCode += " ";
+                    }
+
+                    if (messages[1] == "text")
+                    {
+                        codeToExecute = customCode + $" answerString = evalc('{messages[2]}'); ";
+                    }
+                    else
+                    {
+                        outputsText = false;
+
+                        codeToExecute = customCode;
+                    }
+
+                    break;
                 }
                 case "!solve":
                 {
@@ -220,27 +271,27 @@ namespace MATBOT
 
             await msg.Channel.SendMessageAsync("Processing...");
 
-            startInfo.Arguments = _pathToMatlab + codeToExecute + _endOfStuff;
-            process.StartInfo = startInfo;
             try
             {
-                process.Start();
-
                 EmbedBuilder builder = new EmbedBuilder();
                 builder.Title = "Output";
                 builder.WithColor(Color.Blue);
 
                 if (outputsText)
                 {
+                    startInfo.Arguments = _pathToMatlab + codeToExecute + _textCommandSuffix;
+                    process.StartInfo = startInfo;
+
+                    process.Start();
+
                     await Task.Delay(1000);
 
-                    FileInfo info = new FileInfo(_outputTextFilename);
                     while (!process.HasExited)
                     {
                         await Task.Delay(100);
                     }
 
-                    string answer = File.ReadAllText(_outputTextFilename);
+                    string answer = File.ReadAllText(_outputTextFilepath);
                     answer = answer.Replace("*", "\\*");
                     answer = answer.Replace("answer =\n", "");
                     answer = answer.Replace("answerString =\n", "");
@@ -248,6 +299,11 @@ namespace MATBOT
                     answer = answer.Replace("answer =", "");
                     answer = answer.Replace("answerString =", "");
                     answer = answer.Replace("ans =", "");
+                    if (customOutputVar != null)
+                    {
+                        answer = answer.Replace("customOutputVar =\n", "");
+                        answer = answer.Replace("customOutputVar =", "");
+                    }
                     answer = answer.Replace("Empty sym: 0-by-1", "Answer cannot be found or there's an error in the input");
                     answer = answer.Trim();
                     answer = prefix + answer + postfix;
@@ -291,7 +347,28 @@ namespace MATBOT
                 }
                 else
                 {
+                    startInfo.Arguments = _pathToMatlab + codeToExecute + _imageCommandSuffix + customOutputVar + _imageCommandPostfix;
+                    process.StartInfo = startInfo;
 
+                    process.Start();
+
+                    await Task.Delay(1000);
+
+                    while (!process.HasExited)
+                    {
+                        await Task.Delay(100);
+                    }
+
+                    builder.ImageUrl = $"attachment://{_imageFilename}";
+
+                    if (process.ExitCode == 0)
+                    {
+                        await msg.Channel.SendFileAsync(_imageFullpath, embed: builder.Build());
+                    }
+                    else
+                    {
+                        await msg.Channel.SendMessageAsync("An error occured. Check your input.");
+                    }
                 }
 
                 process.Kill();
@@ -354,25 +431,6 @@ namespace MATBOT
                     return ' ';
                 }
             }
-        }
-
-        private bool IsFileInUse(FileInfo file)
-        {
-            FileStream stream = null;
-
-            try
-            {
-                stream = file.Open(FileMode.Open, FileAccess.ReadWrite, FileShare.None);
-            }
-            catch (IOException)
-            {
-                return true;
-            }
-            finally
-            {
-                stream?.Close();
-            }
-            return false;
         }
     }
 }

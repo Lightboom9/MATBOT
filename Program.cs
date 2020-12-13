@@ -173,18 +173,11 @@ namespace MATBOT
 
                     if (messages.Length == 3)
                     {
-                        codeToExecute += "syms " + messages[2] +$"; f = inline('{messages[1]}', '{messages[2]}'); answer = int(f({messages[2]}),'" + messages[2] + "'); answerString = evalc('answer');";
+                        codeToExecute += "syms " + messages[2] +$"; f = @({messages[2]}) {messages[1]}; answer = int(f({messages[2]}),'" + messages[2] + "'); answerString = evalc('answer');";
                     }
                     else
                     {
-                        string parms = "";
-                        for (int i = 0; i < messages[3].Length; i += 2)
-                        {
-                            parms += "'" + messages[3][i] + "'";
-                            if (i + 1 != messages[3].Length) parms += ",";
-                        }
-
-                        codeToExecute += "syms " + messages[2][0] + " " + messages[3].Replace(',', ' ') + $"; f = inline('{messages[1]}', '{messages[2]}', {parms}); answer = int(f({messages[2]}, {messages[3]}),'" + messages[2] + $"'); answerString = evalc('answer');";
+                        codeToExecute += "syms " + messages[2][0] + " " + messages[3].Replace(',', ' ') + $"; f = @({messages[2]},{messages[3]}) {messages[1]}; answer = int(f({messages[2]}, {messages[3]}),'" + messages[2] + $"'); answerString = evalc('answer');";
                     }
 
                     break;
@@ -208,18 +201,11 @@ namespace MATBOT
 
                     if (messages.Length == 5)
                     {
-                        codeToExecute += "syms " + messages[2] + $"; f = inline('{messages[1]}', '{messages[2]}'); answer = int(f({messages[2]}),'" + messages[2] + $"', {messages[3]}, {messages[4]}); answerString = evalc('answer');";
+                        codeToExecute += "syms " + messages[2] + $"; f = @({messages[2]}) {messages[1]}; answer = int(f({messages[2]}),'" + messages[2] + $"', {messages[3]}, {messages[4]}); answerString = evalc('answer');";
                     }
                     else
                     {
-                        string parms = "";
-                        for (int i = 0; i < messages[3].Length; i += 2)
-                        {
-                            parms += "'" + messages[3][i] + "'";
-                            if (i + 1 != messages[3].Length) parms += ",";
-                        }
-
-                        codeToExecute += "syms " + messages[2][0] + " " + messages[3].Replace(',', ' ') + $"; f = inline('{messages[1]}', '{messages[2]}', {parms}); answer = int(f({messages[2]}, {messages[3]}),'" + messages[2] + $"', {messages[3]}, {messages[4]}); answerString = evalc('answer');";
+                        codeToExecute += "syms " + messages[2][0] + " " + messages[3].Replace(',', ' ') + $"; f = @({messages[2]},{messages[3]}) {messages[1]}; answer = int(f({messages[2]}, {messages[3]}),'" + messages[2] + $"', {messages[3]}, {messages[4]}); answerString = evalc('answer');";
                     }
 
                     break;
@@ -246,15 +232,13 @@ namespace MATBOT
 
                 if (outputsText)
                 {
-                    await Task.Delay(5000);
+                    await Task.Delay(1000);
 
                     FileInfo info = new FileInfo(_outputTextFilename);
-                    while (IsFileInUse(info))
+                    while (!process.HasExited)
                     {
-                        await Task.Delay(1000);
+                        await Task.Delay(100);
                     }
-
-                    await Task.Delay(1000);
 
                     string answer = File.ReadAllText(_outputTextFilename);
                     answer = answer.Replace("*", "\\*");

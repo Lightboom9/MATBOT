@@ -66,19 +66,6 @@ namespace MATBOT
 
             switch (messages[0])
             {
-                case "!embed":
-                {
-                    EmbedBuilder builder = new EmbedBuilder();
-                    
-                    builder.Title = "This is a title.";
-                    builder.AddField("This is a field.", "And *this* is a value.", true);
-                    builder.ImageUrl = $"attachment://{_imageFilename}";
-
-                    builder.WithColor(Color.Blue);
-                    await msg.Channel.SendFileAsync(@"c:\outdir\" + _imageFilename, embed: builder.Build());
-
-                    return;
-                }
                 case "!help":
                 {
                     EmbedBuilder builder = new EmbedBuilder();
@@ -86,13 +73,16 @@ namespace MATBOT
                     builder.Title = "List of commands";
                     builder.Description = "Equations and sequences of characters in all other input elements must not contain spaces.\nInput elements in [] are mandatory. Input elements in () are optional.\nAdditional variables may represent any additional data.";
                     builder.Color = Color.Blue;
-                    builder.Footer = new EmbedFooterBuilder().WithText("This bot uses MATLAB");
+                    builder.Footer = new EmbedFooterBuilder().WithText("This bot uses MATLAB for calculations");
 
                     builder.AddField("!help", "Provides the list of available commands.");
                     builder.AddField("!solve", "Solves the given equation.\nSyntax: `!solve [equation] [unknown var] (additional vars)`\nExample: `!solve a*x+3+b==18 x a,b`");
                     builder.AddField("!solveSystem", "Solves the given system of equations.\nSyntax: `!solveSystem [equations] [unknown vars] (additional vars)`\nExample: `!solveSystem x+y==a,x-y==b x,y a,b`");
-                    builder.AddField("!integrate", "Integrates the given function.\nSyntax: `!integrate [function] [slice along var] (additional vars)`\nExample: `!integrate exp(x)*b+3*a-4 x a,b`");
-                    builder.AddField("!integrateDefinite", "Makes a definite integration of the given function.\nSyntax: `!integrateDefinite [function] [slice along var] (additional vars) [bottom limit] [upper limit]`\nExample: `!integrateDefinite 2*x+3 x 1 4`");
+                    builder.AddField("!diff", "Takes derivative of the given function.\nSyntax: `!diff [equation] [dependent var] (additional vars) [diff number]`\nExample: `!diff x^a x a 1`");
+                    builder.AddField("!limit", "Takes limit of the given function.\nSyntax: `!limit [function] [dependent var] (additional vars) [point]`\nExample 1: `!limit x^2 x 5`\nExample 2: `!limit a*symsum(1/2^i,i,1,x) x a,i Inf`");
+                    builder.AddField("!integrate", "Makes an indefinite integration of the given function.\nSyntax: `!integrate [function] [slice along var] (additional vars)`\nExample: `!integrate exp(x)*b+3*a-4 x a,b`");
+                    builder.AddField("!integrateDefinite", "Makes an definite integration of the given function.\nSyntax: `!integrateDefinite [function] [slice along var] (additional vars) [bottom limit] [upper limit]`\nExample: `!integrateDefinite 2*x+3 x 1 4`");
+                    builder.AddField("!graphic", "Creates a graphic of the given function.\nSyntax: `!graphic [function] [argument var] [argument left limit] [argument right limit]`\nExample: `!graphic x^2 x -5 5`");
                     if (msg.Author.Id == 284956691391578112) builder.AddField("!custom", "Runs custom matlab code.\nSyntax: !custom [output type] [output variable] [code]\nAvailable output types: text, image\nExample 1: `!custom text answer answer = 3 + 5;`\nExample 2: `!custom image gcf x = -5:0.01:5; y = x.^2; gcf = figure('visible','off'); plot(x,y);`");
 
                     await msg.Channel.SendMessageAsync("", embed: builder.Build());
@@ -151,7 +141,7 @@ namespace MATBOT
 
                         return;
                     }
-                    if (messages[1].Contains(',') || messages[2].Contains(','))
+                    if (messages[2].Contains(','))
                     {
                         await msg.Channel.SendMessageAsync("Wrong input.");
 
@@ -202,6 +192,65 @@ namespace MATBOT
 
                     break;
                 }
+                case "!limit":
+                {
+                    Console.WriteLine("been here");
+                    if (messages.Length < 4 || messages.Length > 5)
+                    {
+                        await msg.Channel.SendMessageAsync("Wrong input.");
+
+                        return;
+                    }
+                    Console.WriteLine("been here x2");
+                    if (messages[2].Contains(','))
+                    {
+                        await msg.Channel.SendMessageAsync("Wrong input.");
+
+                        return;
+                    }
+                    Console.WriteLine("been here x3");
+
+                    if (!messages[1].Contains("==")) messages[1] = messages[1].Replace("=", "==");
+
+                    if (messages.Length == 4)
+                    {
+                        codeToExecute += "syms " + messages[2] + "; f = @(" + messages[2] + ") " + messages[1] + "; answer = limit(f(" + messages[2] + "), " + messages[2] + ", " + messages[3] + "); answerString = evalc('answer'); ";
+                    }
+                    else
+                    {
+                        codeToExecute += "syms " + messages[2] + " " + messages[3].Replace(',', ' ') + "; f = @(" + messages[2] + "," + messages[3] + ") " + messages[1] + "; answer = limit(f(" + messages[2] + "," + messages[3] + "), " + messages[2] + ", " + messages[4] + "); answerString = evalc('answer'); ";
+                    }
+
+                    break;
+                }
+                case "!diff":
+                {
+                    if (messages.Length < 4 || messages.Length > 5)
+                    {
+                        await msg.Channel.SendMessageAsync("Wrong input.");
+
+                        return;
+                    }
+                    if (messages[2].Contains(','))
+                    {
+                        await msg.Channel.SendMessageAsync("Wrong input.");
+
+                        return;
+                    }
+
+                    if (!messages[1].Contains("==")) messages[1] = messages[1].Replace("=", "==");
+
+                    if (messages.Length == 3)
+                    {
+                        codeToExecute += "syms " + messages[2] + "; f = @(" + messages[2] + ") " + messages[1] + "; answer = diff(f(" + messages[2] + "), " + messages[2] + ", " + messages[3] + "); answerString = evalc('answer'); ";
+                    }
+                    else
+                    {
+                        codeToExecute += "syms " + messages[2] + " " + messages[3] + "; f = @(" + messages[2] + ", " + messages[3] + ") " + messages[1] + "; answer = diff(f(" + messages[2] + "," + messages[3] + "), " + messages[2] + ", " + messages[4] + "); answerString = evalc('answer'); ";
+                    }
+
+                    break;
+                }
                 case "!integrate":
                 {
                     if (messages.Length < 3 || messages.Length > 4)
@@ -210,7 +259,7 @@ namespace MATBOT
 
                         return;
                     }
-                    if (messages[1].Contains(',') || messages[2].Contains(','))
+                    if (messages[2].Contains(','))
                     {
                         await msg.Channel.SendMessageAsync("Wrong input.");
 
@@ -241,7 +290,7 @@ namespace MATBOT
 
                         return;
                     }
-                    if (messages[1].Contains(',') || messages[2].Contains(','))
+                    if (messages[2].Contains(','))
                     {
                         await msg.Channel.SendMessageAsync("Wrong input.");
 

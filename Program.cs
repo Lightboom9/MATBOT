@@ -150,21 +150,18 @@ namespace MATBOT
                 }
                 case "!limit":
                 {
-                    Console.WriteLine("been here");
                     if (messages.Length < 4 || messages.Length > 5)
                     {
                         await msg.Channel.SendMessageAsync("Wrong input.");
 
                         return;
                     }
-                    Console.WriteLine("been here x2");
                     if (messages[2].Contains(','))
                     {
                         await msg.Channel.SendMessageAsync("Wrong input.");
 
                         return;
                     }
-                    Console.WriteLine("been here x3");
 
                     if (!messages[1].Contains("==")) messages[1] = messages[1].Replace("=", "==");
 

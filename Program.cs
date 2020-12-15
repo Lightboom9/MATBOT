@@ -276,7 +276,9 @@ namespace MATBOT
                         return;
                     }
 
-                    messages[1] = messages[1].Replace("^", ".^");
+                    if (!messages[1].Contains(".^")) messages[1] = messages[1].Replace("^", ".^");
+                    if (!messages[1].Contains(".*")) messages[1] = messages[1].Replace("*", ".*");
+                    if (!messages[1].Contains("./")) messages[1] = messages[1].Replace("/", "./");
 
                     outputsText = false;
 
